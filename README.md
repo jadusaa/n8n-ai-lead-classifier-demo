@@ -4,9 +4,14 @@ I built this small n8n workflow to show a real LLM integration with structured o
 validation, retries, and explicit failure handling. It uses the Hive API with GLM 5.3 Flash and
 synthetic lead messages.
 
-Files in this repo are flat: `ai-lead-classifier.json` is the workflow export, `ARCHITECTURE.md`
-documents the design, `test_cases.json` / `results.json` hold the tests and real results, and
-`evidence/` has the screenshots and captured responses.
+Files in this repo are flat (a quirk of GitHub's web uploader): everything sits at the top level.
+
+- **ai-lead-classifier.json** - the n8n workflow export (credential referenced by id, no secret)
+- **ARCHITECTURE.md** - design doc: input contract, schema, routing, retry policy, failure behaviour
+- **test_cases.json** - the 9 deterministic acceptance cases
+- **results.json** - real test results (9/9 passed)
+- **01_workflow_canvas.png / 02_successful_execution.png** - real n8n screenshots
+- **success-response.json / forced-failure-response.json / retry-evidence.json** - captured responses from the real runs
 
 ## What it does
 
@@ -26,7 +31,7 @@ documents the design, `test_cases.json` / `results.json` hold the tests and real
 ## Reliability
 
 - the retry test observed **3 attempts** (initial + 2 retries) before failure
-- the forced-503 test returned an explicit failure — **no fabricated classification**
+- the forced-503 test returned an explicit failure - **no fabricated classification**
 - a transient 503 **recovered successfully** on retry against the real API
 - the workflow refuses to return a guessed answer when model output is malformed
 
@@ -46,10 +51,10 @@ be parsed and validated, the caller gets an explicit error instead of a plausibl
 ## Scope
 
 Self-built portfolio demo using synthetic data, not client work. The API key lives in n8n's
-encrypted credential store — the exported workflow references a credential by id and contains
+encrypted credential store - the exported workflow references a credential by id and contains
 no secret.
 
 ## Evidence
 
-![Workflow canvas](evidence/01_workflow_canvas.png)
-![Successful execution](evidence/02_successful_execution.png)
+![Workflow canvas](01_workflow_canvas.png)
+![Successful execution](02_successful_execution.png)
