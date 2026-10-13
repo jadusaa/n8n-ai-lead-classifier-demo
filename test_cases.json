@@ -1,0 +1,128 @@
+[
+  {
+    "id": "T1",
+    "name": "urgent HVAC request",
+    "mode": "happy",
+    "input": {
+      "name": "Sam",
+      "email": "sam@example.test",
+      "message": "Our AC stopped working and the house is getting very hot. Can someone come today?"
+    },
+    "expect": {
+      "category": "hvac",
+      "urgency": "high",
+      "intent": "service_request"
+    }
+  },
+  {
+    "id": "T2",
+    "name": "plumbing quote request",
+    "mode": "happy",
+    "input": {
+      "name": "Priya",
+      "email": "priya@example.test",
+      "message": "Need a quote to replace a leaking kitchen tap, no rush, sometime next week is fine."
+    },
+    "expect": {
+      "category": "plumbing",
+      "urgency": "low",
+      "intent": "quote_request"
+    }
+  },
+  {
+    "id": "T3",
+    "name": "general question",
+    "mode": "happy",
+    "input": {
+      "name": "Alex",
+      "email": "alex@example.test",
+      "message": "What areas do you cover, and do you charge for a callout?"
+    },
+    "expect": {
+      "category": "general",
+      "intent": "question"
+    }
+  },
+  {
+    "id": "T4",
+    "name": "spam / irrelevant",
+    "mode": "happy",
+    "input": {
+      "name": "Growth",
+      "email": "promo@example.test",
+      "message": "Boost your SEO rankings! Click here for a free audit and 10x your leads now."
+    },
+    "expect": {
+      "intent": "spam"
+    }
+  },
+  {
+    "id": "T5",
+    "name": "missing message",
+    "mode": "validation",
+    "input": {
+      "name": "NoMessage",
+      "email": "nm@example.test",
+      "message": ""
+    },
+    "expect": {
+      "http": "reject",
+      "reason": "missing_message"
+    }
+  },
+  {
+    "id": "T6",
+    "name": "malformed LLM output",
+    "mode": "malformed_llm",
+    "input": {
+      "name": "Mal",
+      "email": "mal@example.test",
+      "message": "My boiler is leaking gas, please come urgently."
+    },
+    "expect": {
+      "http": "schema_error"
+    }
+  },
+  {
+    "id": "T7",
+    "name": "forced 503 retry then failure",
+    "mode": "forced_503",
+    "input": {
+      "name": "Fault",
+      "email": "fault@example.test",
+      "message": "Heater not working."
+    },
+    "expect": {
+      "http": "upstream_failed",
+      "retries_expected": 2
+    }
+  },
+  {
+    "id": "T8",
+    "name": "schema-invalid category/urgency",
+    "mode": "schema_invalid",
+    "input": {
+      "name": "Bad",
+      "email": "bad@example.test",
+      "message": "Tap dripping."
+    },
+    "expect": {
+      "http": "schema_error"
+    }
+  },
+  {
+    "id": "T9",
+    "name": "transient failure then success",
+    "mode": "transient_then_ok",
+    "input": {
+      "name": "Retry",
+      "email": "retry@example.test",
+      "message": "Burst pipe in the garage, water everywhere!"
+    },
+    "expect": {
+      "category": "plumbing",
+      "urgency": "high",
+      "intent": "service_request"
+    }
+  }
+]

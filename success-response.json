@@ -1,0 +1,24 @@
+{
+  "note": "Real response from the live n8n workflow (POST /webhook/ai-classify) with a real Hive LLM call.",
+  "provider": "hive",
+  "model": "zai-org/glm-5.3-flash",
+  "endpoint": "https://api.thehive.ai/api/v3/chat/completions",
+  "request": {
+    "name": "Sam",
+    "email": "sam@example.test",
+    "message": "Our AC stopped working and the house is getting very hot. Can someone come today?"
+  },
+  "http_status": 200,
+  "response": {
+    "ok": true,
+    "category": "hvac",
+    "urgency": "high",
+    "intent": "service_request",
+    "confidence": 0.97,
+    "reason": "AC failure with same-day service request and indoor heat indicates urgent HVAC repair need.",
+    "routing": {
+      "queue": "field_team",
+      "sla": "same_day"
+    }
+  }
+}

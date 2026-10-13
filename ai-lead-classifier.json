@@ -1,0 +1,401 @@
+{
+  "name": "AI Lead Classifier (Hive / GLM 5.3 Flash) - Companion Proof",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "ai-classify",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-intake",
+      "name": "Webhook - Classify Lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1040,
+        300
+      ],
+      "webhookId": "ai-classify-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = $json.body ?? $json;\nconst s = (v) => (v === undefined || v === null) ? '' : String(v).trim();\nreturn [{ json: {\n  name: s(b.name),\n  email: s(b.email),\n  message: s(b.message).slice(0, 1000),\n  received_at: new Date().toISOString()\n} }];"
+      },
+      "id": "normalize-input",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -840,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $json;\nconst errors = [];\nif (!j.message) errors.push('missing_message');\nif (!j.name) errors.push('missing_name');\nif (j.email && !(j.email.includes('@') && j.email.indexOf('@') > 0 && j.email.indexOf('@') < j.email.length - 1 && !/[ \\t\\n]/.test(j.email))) errors.push('invalid_email');\nreturn [{ json: { ...j, valid: errors.length === 0, errors } }];"
+      },
+      "id": "validate-required-fields",
+      "name": "Validate Required Fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.valid }}",
+              "value2": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if---input-valid",
+      "name": "IF - Input Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ok: false, error: 'invalid_input',\n  errors: $json.errors, received: { name: $json.name, email: $json.email } } }];"
+      },
+      "id": "respond-400---invalid-input",
+      "name": "Respond 400 - Invalid Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -440,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "respond-400",
+      "name": "Respond - 400 Invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -240,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sys = \"You are a lead classifier for a home services company. Reply with ONLY one compact JSON object. No markdown, no code fences, no explanation. Schema: {\\\"category\\\":\\\"hvac|plumbing|general|other\\\",\\\"urgency\\\":\\\"low|medium|high\\\",\\\"intent\\\":\\\"service_request|quote_request|question|spam|other\\\",\\\"confidence\\\":0.0-1.0,\\\"reason\\\":\\\"one short sentence\\\"}\";\nconst user = `Name: ${$json.name}\\nEmail: ${$json.email}\\nMessage: ${$json.message}`;\nreturn [{ json: { ...$json, model: \"zai-org/glm-5.3-flash\",\n  request: {\n    model: \"zai-org/glm-5.3-flash\",\n    max_tokens: 400,\n    temperature: 0,\n    messages: [\n      { role: 'system', content: sys },\n      { role: 'user', content: user }\n    ]\n  } } }];"
+      },
+      "id": "prepare-llm-prompt",
+      "name": "Prepare LLM Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.thehive.ai/api/v3/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          },
+          "redirect": {
+            "redirect": {}
+          }
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "llm-hive",
+      "name": "LLM - Hive (GLM 5.3 Flash)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -40,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 800,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Hive API"
+        }
+      },
+      "notes": "Hive API, OpenAI-compatible chat/completions. Model zai-org/glm-5.3-flash. Key comes from an n8n header credential named 'Hive API'.",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Upstream failure (HTTP error surfaced by the node) takes priority.\nconst errObj = $json.error ?? null;\nlet status = $json.status_code ?? $json.statusCode ?? 200;\n\nfunction findChoices(o, depth) {\n  if (!o || typeof o !== 'object' || depth > 5) return null;\n  if (Array.isArray(o.choices) && o.choices.length) return o.choices;\n  for (const k of ['body','data','json','response']) {\n    const sub = o[k];\n    if (sub && typeof sub === 'object') { const f = findChoices(sub, depth + 1); if (f) return f; }\n  }\n  return null;\n}\nif (errObj) {\n  const httpCode = errObj.httpCode ?? errObj.statusCode ?? errObj.code ?? null;\n  const msg = errObj.message ?? String(errObj);\n  return [{ json: {\n    upstream_status: (typeof httpCode === 'number' ? httpCode : 503),\n    parse_error: null,\n    schema_errors: [],\n    classified: null,\n    ok: false,\n    upstream_error: String(msg).slice(0, 300)\n  } }];\n}\n\nconst choices = findChoices($json, 0);\nconst msg = choices?.[0]?.message ?? null;\nlet text = msg ? (msg.content ?? '') : (typeof $json === 'string' ? $json : '');\n\nlet parsed = null, parse_err = null;\nconst cleaned = String(text).replace(/```json|```/g, '').trim();\nif (!cleaned) parse_err = 'empty_model_output';\nelse { try { parsed = JSON.parse(cleaned); } catch (e) { parse_err = 'malformed_json'; } }\n\nconst CAT = ['hvac','plumbing','general','other'];\nconst URG = ['low','medium','high'];\nconst INT = ['service_request','quote_request','question','spam','other'];\nlet schema_errors = [];\nif (parsed) {\n  if (!CAT.includes(parsed.category)) schema_errors.push('bad_category');\n  if (!URG.includes(parsed.urgency)) schema_errors.push('bad_urgency');\n  if (!INT.includes(parsed.intent)) schema_errors.push('bad_intent');\n  const c = Number(parsed.confidence);\n  if (!Number.isFinite(c) || c < 0 || c > 1) schema_errors.push('bad_confidence');\n}\nreturn [{ json: {\n  upstream_status: status,\n  parse_error: parse_err,\n  schema_errors,\n  classified: parsed,\n  upstream_error: null,\n  ok: !parse_err && schema_errors.length === 0 && status < 400\n} }];"
+      },
+      "id": "parse-+-validate-schema",
+      "name": "Parse + Validate Schema",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.ok }}",
+              "value2": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if---output-valid",
+      "name": "IF - Output Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        360,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $json;\nlet kind;\nif (j.upstream_error !== null && j.upstream_error !== undefined) kind = 'upstream_failed';\nelse if (j.upstream_status >= 400) kind = 'upstream_failed';\nelse if (j.parse_error) kind = (j.parse_error === 'empty_model_output') ? 'empty_model_output' : 'malformed_llm_output';\nelse if (j.schema_errors && j.schema_errors.length) kind = 'schema_invalid';\nelse kind = 'unknown';\nreturn [{ json: { ok: false, error: kind,\n  upstream_status: j.upstream_status,\n  details: j.upstream_error || j.parse_error || j.schema_errors || null,\n  message: 'No classification produced. Refusing to return a fabricated result.' } }];"
+      },
+      "id": "respond-502---upstream/schema-error",
+      "name": "Respond 502 - Upstream/Schema Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        360,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 502
+        }
+      },
+      "id": "respond-502",
+      "name": "Respond - 502 Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        560,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const c = $json.classified;\nconst queue = (c.category === 'hvac' || c.category === 'plumbing') ? 'field_team' : 'front_desk';\nconst sla = c.urgency === 'high' ? 'same_day' : (c.urgency === 'medium' ? '48h' : 'next_week');\nreturn [{ json: { ok: true, category: c.category, urgency: c.urgency,\n  intent: c.intent, confidence: Number(c.confidence), reason: c.reason,\n  routing: { queue, sla } } }];"
+      },
+      "id": "route-+-format-result",
+      "name": "Route + Format Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-200",
+      "name": "Respond - 200 Classified",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        760,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - Classify Lead": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Validate Required Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Required Fields": {
+      "main": [
+        [
+          {
+            "node": "IF - Input Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Input Valid": {
+      "main": [
+        [
+          {
+            "node": "Prepare LLM Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 400 - Invalid Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond 400 - Invalid Input": {
+      "main": [
+        [
+          {
+            "node": "Respond - 400 Invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare LLM Prompt": {
+      "main": [
+        [
+          {
+            "node": "LLM - Hive (GLM 5.3 Flash)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM - Hive (GLM 5.3 Flash)": {
+      "main": [
+        [
+          {
+            "node": "Parse + Validate Schema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse + Validate Schema": {
+      "main": [
+        [
+          {
+            "node": "IF - Output Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Output Valid": {
+      "main": [
+        [
+          {
+            "node": "Route + Format Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 502 - Upstream/Schema Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond 502 - Upstream/Schema Error": {
+      "main": [
+        [
+          {
+            "node": "Respond - 502 Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route + Format Result": {
+      "main": [
+        [
+          {
+            "node": "Respond - 200 Classified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "pinData": {},
+  "meta": {
+    "instanceId": ""
+  },
+  "versionId": "00000000-0000-4000-8000-000000000000"
+}

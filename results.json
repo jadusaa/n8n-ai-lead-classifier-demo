@@ -1,0 +1,214 @@
+{
+  "provider": "hive",
+  "model": "zai-org/glm-5.3-flash",
+  "endpoint": "POST https://api.thehive.ai/api/v3/chat/completions (OpenAI-compatible)",
+  "auth": "n8n httpHeaderAuth credential (Authorization: Bearer <key>)",
+  "execution_path": "real n8n workflow via POST /webhook/ai-classify",
+  "total": 9,
+  "passed": 9,
+  "failed": 0,
+  "results": [
+    {
+      "id": "T1",
+      "name": "urgent HVAC request",
+      "mode": "happy",
+      "status": "PASS",
+      "http": 200,
+      "expected": {
+        "category": "hvac",
+        "urgency": "high",
+        "intent": "service_request"
+      },
+      "actual": {
+        "ok": true,
+        "category": "hvac",
+        "urgency": "high",
+        "intent": "service_request",
+        "confidence": 0.97,
+        "routing": {
+          "queue": "field_team",
+          "sla": "same_day"
+        }
+      }
+    },
+    {
+      "id": "T2",
+      "name": "plumbing quote request",
+      "mode": "happy",
+      "status": "PASS",
+      "http": 200,
+      "expected": {
+        "category": "plumbing",
+        "urgency": "low",
+        "intent": "quote_request"
+      },
+      "actual": {
+        "ok": true,
+        "category": "plumbing",
+        "urgency": "low",
+        "intent": "quote_request",
+        "routing": {
+          "queue": "field_team",
+          "sla": "next_week"
+        }
+      }
+    },
+    {
+      "id": "T3",
+      "name": "general question",
+      "mode": "happy",
+      "status": "PASS",
+      "http": 200,
+      "expected": {
+        "category": "general",
+        "intent": "question"
+      },
+      "actual": {
+        "ok": true,
+        "category": "general",
+        "urgency": "low",
+        "intent": "question",
+        "routing": {
+          "queue": "front_desk"
+        }
+      }
+    },
+    {
+      "id": "T4",
+      "name": "spam / irrelevant",
+      "mode": "happy",
+      "status": "PASS",
+      "http": 200,
+      "expected": {
+        "intent": "spam"
+      },
+      "actual": {
+        "ok": true,
+        "category": "other",
+        "urgency": "low",
+        "intent": "spam",
+        "routing": {
+          "queue": "front_desk"
+        }
+      }
+    },
+    {
+      "id": "T5",
+      "name": "missing message",
+      "mode": "validation",
+      "status": "PASS",
+      "http": 400,
+      "expected": {
+        "http": "reject",
+        "reason": "missing_message"
+      },
+      "actual": {
+        "ok": false,
+        "error": "invalid_input",
+        "errors": [
+          "missing_message"
+        ]
+      }
+    },
+    {
+      "id": "T6",
+      "name": "malformed LLM output",
+      "mode": "malformed_llm",
+      "status": "PASS",
+      "http": 502,
+      "expected": {
+        "http": "schema_error"
+      },
+      "actual": {
+        "ok": false,
+        "error": "malformed_llm_output",
+        "upstream_status": 200,
+        "details": "malformed_json"
+      }
+    },
+    {
+      "id": "T7",
+      "name": "forced 503 retry then failure",
+      "mode": "forced_503",
+      "status": "PASS",
+      "http": 502,
+      "expected": {
+        "http": "upstream_failed",
+        "retries_expected": 2
+      },
+      "actual": {
+        "ok": false,
+        "error": "upstream_failed",
+        "upstream_status": 503
+      },
+      "attempts": [
+        {
+          "attempt": 1,
+          "result": "503"
+        },
+        {
+          "attempt": 2,
+          "result": "503"
+        },
+        {
+          "attempt": 3,
+          "result": "503"
+        }
+      ],
+      "note": "3 attempts observed at the fixture (1 initial + 2 retries) with backoff, then clean failure."
+    },
+    {
+      "id": "T8",
+      "name": "schema-invalid category/urgency",
+      "mode": "schema_invalid",
+      "status": "PASS",
+      "http": 502,
+      "expected": {
+        "http": "schema_error"
+      },
+      "actual": {
+        "ok": false,
+        "error": "schema_invalid",
+        "details": [
+          "bad_category",
+          "bad_urgency",
+          "bad_confidence"
+        ]
+      }
+    },
+    {
+      "id": "T9",
+      "name": "transient failure then success",
+      "mode": "transient_then_ok",
+      "status": "PASS",
+      "http": 200,
+      "expected": {
+        "category": "plumbing",
+        "urgency": "high",
+        "intent": "service_request"
+      },
+      "actual": {
+        "ok": true,
+        "category": "plumbing",
+        "urgency": "high",
+        "intent": "service_request",
+        "confidence": 0.98,
+        "routing": {
+          "queue": "field_team",
+          "sla": "same_day"
+        }
+      },
+      "attempts": [
+        {
+          "attempt": 1,
+          "result": "503"
+        },
+        {
+          "attempt": 2,
+          "result": "200 ok"
+        }
+      ],
+      "note": "1 x 503 then retry succeeded against the real Hive API."
+    }
+  ]
+}

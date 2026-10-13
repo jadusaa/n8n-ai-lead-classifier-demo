@@ -1,0 +1,19 @@
+{
+  "note": "Forced-503 path. The LLM node URL was pointed at a local fixture that always returns 503; retryOnFail produced 3 attempts with backoff, then the workflow returned a clean failure with NO fabricated classification.",
+  "mode": "always503",
+  "retry_config": {
+    "retryOnFail": true,
+    "maxTries": 3,
+    "waitBetweenTries_ms": 800
+  },
+  "fixture_attempts_observed": 3,
+  "http_status": 502,
+  "response": {
+    "ok": false,
+    "error": "upstream_failed",
+    "upstream_status": 503,
+    "details": "503 Service Unavailable (injected)",
+    "message": "No classification produced. Refusing to return a fabricated result."
+  },
+  "fabricated_classification_returned": false
+}

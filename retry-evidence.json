@@ -1,0 +1,28 @@
+{
+  "note": "Transient-failure recovery. The fixture returned 503 on attempt 1 then proxied to the real Hive API; the retry succeeded with a valid classification.",
+  "mode": "transient (1 injected 503)",
+  "attempts": [
+    {
+      "attempt": 1,
+      "result": "503",
+      "source": "local fixture"
+    },
+    {
+      "attempt": 2,
+      "result": "200 ok",
+      "source": "real Hive API"
+    }
+  ],
+  "http_status": 200,
+  "response": {
+    "ok": true,
+    "category": "plumbing",
+    "urgency": "high",
+    "intent": "service_request",
+    "confidence": 0.98,
+    "routing": {
+      "queue": "field_team",
+      "sla": "same_day"
+    }
+  }
+}
